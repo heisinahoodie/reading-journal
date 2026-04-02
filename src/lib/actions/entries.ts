@@ -1,0 +1,83 @@
+"use server";
+
+import { getDb } from "@/lib/db";
+import { journalEntries } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
+import { generateId } from "@/lib/utils";
+
+export async function getEntriesForBook(bookId: string) {
+  const db = getDb();
+  return db
+    .select()
+    .from(journalEntries)
+    .where(eq(journalEntries.bookId, bookId))
+    .orderBy(desc(journalEntries.createdAt));
+}
+
+export async function getEntry(id: string) {
+  const db = getDb();
+  const result = await db
+    .select()
+    .from(journalEntries)
+    .where(eq(journalEntries.id, id));
+  return result[0] || null;
+}
+
+export async function createEntry(data: {
+  bookId: string;
+  title: string;
+  chapterRange?: string;
+  thoughts?: string;
+  keyLessons?: string[];
+  favoriteQuotes?: string[];
+  themesAndIdeas?: string[];
+  characters?: string[];
+  connections?: string[];
+}) {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const id = generateId();
+
+  await db.insert(journalEntries).values({
+    id,
+    bookId: data.bookId,
+    title: data.title,
+    chapterRange: data.chapterRange || null,
+    thoughts: data.thoughts || null,
+    keyLessons: data.keyLessons || [],
+    favoriteQuotes: data.favoriteQuotes || [],
+    themesAndIdeas: data.themesAndIdeas || [],
+    characters: data.characters || [],
+    connections: data.connections || [],
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return id;
+}
+
+export async function updateEntry(
+  id: string,
+  data: Partial<{
+    title: string;
+    chapterRange: string;
+    thoughts: string;
+    keyLessons: string[];
+    favoriteQuotes: string[];
+    themesAndIdeas: string[];
+    characters: string[];
+    connections: string[];
+  }>
+) {
+  const db = getDb();
+  const now = new Date().toISOString();
+  await db
+    .update(journalEntries)
+    .set({ ...data, updatedAt: now })
+    .where(eq(journalEntries.id, id));
+}
+
+export async function deleteEntry(id: string) {
+  const db = getDb();
+  await db.delete(journalEntries).where(eq(journalEntries.id, id));
+}

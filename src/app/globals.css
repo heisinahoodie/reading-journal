@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+:root {
+  --background: #faf8f5;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+  --primary: #b8860b;
+  --primary-foreground: #faf8f5;
+  --secondary: #f0ebe3;
+  --secondary-foreground: #1a1a1a;
+  --muted: #f0ebe3;
+  --muted-foreground: #6b6560;
+  --accent: #f0ebe3;
+  --accent-foreground: #1a1a1a;
+  --destructive: #dc2626;
+  --destructive-foreground: #faf8f5;
+  --border: #e5e0d8;
+  --input: #e5e0d8;
+  --ring: #b8860b;
+  --radius: 0.5rem;
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 64px;
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #ececef;
+  --card: #141416;
+  --card-foreground: #ececef;
+  --popover: #141416;
+  --popover-foreground: #ececef;
+  --primary: #d4a843;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1e1e22;
+  --secondary-foreground: #ececef;
+  --muted: #1e1e22;
+  --muted-foreground: #8e8e93;
+  --accent: #1e1e22;
+  --accent-foreground: #ececef;
+  --destructive: #ef4444;
+  --destructive-foreground: #ececef;
+  --border: #2a2a2e;
+  --input: #2a2a2e;
+  --ring: #d4a843;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground);
+}
+
+/* Smooth transitions for theme switching */
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Star rating styles */
+.star-filled {
+  color: var(--primary);
+}
+.star-empty {
+  color: var(--muted);
+}
+
+/* Status badge colors */
+.status-to-read {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.status-reading {
+  background: #2563eb20;
+  color: #3b82f6;
+}
+.status-finished {
+  background: #16a34a20;
+  color: #22c55e;
+}
+
+/* Kanban column drop zone */
+.drop-zone-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
