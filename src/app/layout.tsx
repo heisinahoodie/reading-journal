@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Newsreader, Outfit, Fira_Code } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { seedDatabase } from "@/lib/db/seed";
@@ -8,14 +8,23 @@ import "./globals.css";
 // Seed database on first load
 seedDatabase().catch(() => {});
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const newsreader = Newsreader({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const outfit = Outfit({
+  variable: "--font-body",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+});
+
+const firaCode = Fira_Code({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -31,14 +40,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${newsreader.variable} ${outfit.variable} ${firaCode.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background">
         <ThemeProvider>
           <Sidebar />
           <main className="pl-[260px] min-h-screen transition-all duration-300">
-            <div className="mx-auto max-w-7xl px-6 py-6">
+            <div className="mx-auto max-w-7xl px-6 py-8">
               {children}
             </div>
           </main>

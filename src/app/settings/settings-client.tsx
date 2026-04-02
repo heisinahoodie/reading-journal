@@ -63,15 +63,15 @@ export function SettingsClient({
 
   return (
     <div className="max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="animate-in animate-in-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1 italic" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
           Configure your reading journal
         </p>
       </div>
 
       {/* API Key */}
-      <section className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <section className="rounded-xl border border-border bg-card p-6 space-y-4 animate-in animate-in-2">
         <div className="flex items-center gap-2">
           <Key className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">API Key</h2>
@@ -116,7 +116,7 @@ export function SettingsClient({
       </section>
 
       {/* Theme */}
-      <section className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <section className="rounded-xl border border-border bg-card p-6 space-y-4 animate-in animate-in-3">
         <div className="flex items-center gap-2">
           <Palette className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Theme</h2>
@@ -147,7 +147,7 @@ export function SettingsClient({
       </section>
 
       {/* AI Model */}
-      <section className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <section className="rounded-xl border border-border bg-card p-6 space-y-4 animate-in animate-in-4">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">AI Model</h2>
@@ -180,7 +180,7 @@ export function SettingsClient({
       </section>
 
       {/* About */}
-      <section className="rounded-xl border border-border bg-card p-6 space-y-3">
+      <section className="rounded-xl border border-border bg-card p-6 space-y-3 animate-in animate-in-5">
         <h2 className="text-lg font-semibold">About</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Reading Journal is your personal AI-powered reading companion. Track
@@ -188,7 +188,7 @@ export function SettingsClient({
           discover new books based on your reading history. Inspired by Notion,
           built with love.
         </p>
-        <p className="text-xs text-muted-foreground/60">
+        <p className="text-xs text-muted-foreground/60" style={{ fontFamily: "var(--font-mono), monospace" }}>
           Built with Next.js, Tailwind CSS, SQLite, and Claude
         </p>
       </section>

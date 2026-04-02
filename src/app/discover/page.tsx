@@ -73,17 +73,17 @@ export default function DiscoverPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-in animate-in-1">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Discover</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Discover</h1>
+          <p className="text-sm text-muted-foreground mt-1 italic" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
             AI-powered book recommendations based on your reading history
           </p>
         </div>
         <button
           onClick={generateRecommendations}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground btn-primary-glow disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -112,10 +112,10 @@ export default function DiscoverPage() {
             return (
               <div
                 key={rec.id}
-                className="rounded-xl border border-border bg-card overflow-hidden hover:border-primary/30 hover:shadow-lg transition-all"
+                className="rounded-xl border border-border bg-card overflow-hidden card-hover"
               >
-                <div className="aspect-[3/2] bg-gradient-to-br from-primary/20 via-primary/10 to-accent flex items-center justify-center">
-                  <span className="text-3xl font-bold text-primary/40">
+                <div className="aspect-[3/2] bg-gradient-to-br from-primary/20 via-primary/10 to-accent flex items-center justify-center gallery-cover">
+                  <span className="text-3xl font-bold text-primary/40" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
                     {initials}
                   </span>
                 </div>

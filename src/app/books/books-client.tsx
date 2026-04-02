@@ -181,7 +181,7 @@ export function BooksClient({ books }: { books: Book[] }) {
 
         <button
           onClick={() => setDialogOpen(true)}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground btn-primary-glow"
         >
           <Plus size={16} />
           Add Book
@@ -189,7 +189,7 @@ export function BooksClient({ books }: { books: Book[] }) {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-xl border border-border bg-card animate-in animate-in-2">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

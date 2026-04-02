@@ -5,24 +5,43 @@ import { books } from "@/lib/db/schema";
 import { eq, desc, asc } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 
+function parseJsonFields(book: any) {
+  if (!book) return book;
+  const tryParse = (val: any) => {
+    if (typeof val === "string") {
+      try { return JSON.parse(val); } catch { return val; }
+    }
+    return val;
+  };
+  return {
+    ...book,
+    genres: tryParse(book.genres) ?? [],
+    keyLessons: tryParse(book.keyLessons) ?? [],
+    favoriteQuotes: tryParse(book.favoriteQuotes) ?? [],
+  };
+}
+
 export async function getBooks() {
   const db = getDb();
-  return db.select().from(books).orderBy(desc(books.updatedAt));
+  const result = db.select().from(books).orderBy(desc(books.updatedAt)).all();
+  return result.map(parseJsonFields);
 }
 
 export async function getBook(id: string) {
   const db = getDb();
-  const result = await db.select().from(books).where(eq(books.id, id));
-  return result[0] || null;
+  const result = db.select().from(books).where(eq(books.id, id)).all();
+  return parseJsonFields(result[0]) || null;
 }
 
 export async function getBooksByStatus(status: string) {
   const db = getDb();
-  return db
+  const result = db
     .select()
     .from(books)
     .where(eq(books.status, status))
-    .orderBy(desc(books.updatedAt));
+    .orderBy(desc(books.updatedAt))
+    .all();
+  return result.map(parseJsonFields);
 }
 
 export async function createBook(data: {
@@ -39,7 +58,7 @@ export async function createBook(data: {
   const now = new Date().toISOString();
   const id = generateId();
 
-  await db.insert(books).values({
+  db.insert(books).values({
     id,
     title: data.title,
     author: data.author,
@@ -51,7 +70,7 @@ export async function createBook(data: {
     aiRecommended: data.aiRecommended || false,
     createdAt: now,
     updatedAt: now,
-  });
+  }).run();
 
   return id;
 }
@@ -92,10 +111,10 @@ export async function updateBook(
     updates.finishDate = now.split("T")[0];
   }
 
-  await db.update(books).set(updates).where(eq(books.id, id));
+  db.update(books).set(updates).where(eq(books.id, id)).run();
 }
 
 export async function deleteBook(id: string) {
   const db = getDb();
-  await db.delete(books).where(eq(books.id, id));
+  db.delete(books).where(eq(books.id, id)).run();
 }

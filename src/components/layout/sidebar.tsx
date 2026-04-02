@@ -34,15 +34,15 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-card transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col sidebar-gradient transition-all duration-300",
         collapsed ? "w-16" : "w-[260px]"
       )}
     >
       {/* Logo */}
       <div className="flex h-14 items-center gap-3 border-b border-border px-4">
-        <BookOpen className="h-6 w-6 shrink-0 text-primary" />
+        <BookOpen className="h-6 w-6 shrink-0 text-primary" style={{ filter: "drop-shadow(0 0 4px var(--glow-primary))" }} />
         {!collapsed && (
-          <span className="text-lg font-semibold tracking-tight">
+          <span className="text-lg font-display tracking-tight" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
             Reading Journal
           </span>
         )}
@@ -60,10 +60,10 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  ? "nav-active text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground hover:translate-x-0.5"
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />

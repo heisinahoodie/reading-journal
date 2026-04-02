@@ -85,21 +85,22 @@ function GalleryCard({ book }: { book: Book }) {
   return (
     <Link
       href={`/books/${book.id}`}
-      className="group block rounded-xl border border-border bg-card overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30"
+      className="group block rounded-xl border border-border bg-card overflow-hidden card-hover"
     >
       {/* Cover */}
       <div
         className={cn(
-          "relative aspect-[2/3] bg-gradient-to-br flex items-center justify-center overflow-hidden",
+          "relative aspect-[2/3] bg-gradient-to-br flex items-center justify-center gallery-cover",
           gradient
         )}
       >
-        <span className="text-3xl font-bold text-white/70 select-none tracking-widest">
+        <span className="text-3xl font-bold text-white/70 select-none tracking-widest" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
           {initials}
         </span>
 
         {/* Decorative book spine line */}
         <div className="absolute inset-y-0 left-3 w-px bg-white/10" />
+        <div className="absolute inset-y-0 left-4 w-px bg-white/5" />
 
         {/* Status badge overlay */}
         <div className="absolute top-2 right-2">

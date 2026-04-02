@@ -10,9 +10,9 @@ export default async function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
+      <div className="animate-in animate-in-1">
+        <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground mt-1 italic" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
           Your reading journey at a glance
         </p>
       </div>
@@ -24,31 +24,35 @@ export default async function Dashboard() {
           label="Currently Reading"
           value={reading.length}
           accent="text-blue-500"
+          delay="animate-in-2"
         />
         <StatCard
           icon={<BookCheck className="h-5 w-5" />}
           label="Finished"
           value={finished.length}
           accent="text-green-500"
+          delay="animate-in-3"
         />
         <StatCard
           icon={<BookMarked className="h-5 w-5" />}
           label="To Read"
           value={toRead.length}
           accent="text-muted-foreground"
+          delay="animate-in-4"
         />
         <StatCard
           icon={<TrendingUp className="h-5 w-5" />}
           label="Pages Read"
           value={totalPages.toLocaleString()}
           accent="text-primary"
+          delay="animate-in-5"
         />
       </div>
 
       {/* Currently Reading */}
       {reading.length > 0 && (
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Currently Reading</h2>
+        <section className="animate-in animate-in-6">
+          <h2 className="text-xl mb-4">Currently Reading</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {reading.map((book) => {
               const progress =
@@ -59,7 +63,7 @@ export default async function Dashboard() {
                 <a
                   key={book.id}
                   href={`/books/${book.id}`}
-                  className="group rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
+                  className="group rounded-xl border border-border bg-card p-5 card-hover"
                 >
                   <div className="flex items-start gap-4">
                     <div className="h-16 w-12 shrink-0 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
@@ -82,7 +86,7 @@ export default async function Dashboard() {
                           </div>
                           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-primary transition-all"
+                              className="h-full rounded-full progress-bar-glow transition-all"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
@@ -99,8 +103,8 @@ export default async function Dashboard() {
 
       {/* Recent Books */}
       {allBooks.length > 0 && (
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+        <section className="animate-in animate-in-7">
+          <h2 className="text-xl mb-4">Recent Activity</h2>
           <div className="rounded-xl border border-border bg-card divide-y divide-border">
             {allBooks.slice(0, 5).map((book) => (
               <a
@@ -137,8 +141,10 @@ export default async function Dashboard() {
       )}
 
       {allBooks.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
-          <BookOpen className="h-12 w-12 text-muted-foreground/50 mb-4" />
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center animate-in animate-in-3">
+          <div className="ambient-ring inline-flex">
+            <BookOpen className="h-12 w-12 text-muted-foreground/50 mb-4" />
+          </div>
           <h3 className="text-lg font-semibold">No books yet</h3>
           <p className="text-muted-foreground mt-1 max-w-sm">
             Start building your reading journal by adding your first book.
@@ -160,16 +166,18 @@ function StatCard({
   label,
   value,
   accent,
+  delay = "",
 }: {
   icon: React.ReactNode;
   label: string;
   value: number | string;
   accent: string;
+  delay?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className={`rounded-xl border border-border bg-card p-5 card-hover animate-in ${delay}`}>
       <div className={`${accent} mb-3`}>{icon}</div>
-      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>{value}</p>
       <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   );

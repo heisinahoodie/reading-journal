@@ -5,22 +5,43 @@ import { journalEntries } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 
+function parseEntryJson(entry: any) {
+  if (!entry) return entry;
+  const tryParse = (val: any) => {
+    if (typeof val === "string") {
+      try { return JSON.parse(val); } catch { return val; }
+    }
+    return val;
+  };
+  return {
+    ...entry,
+    keyLessons: tryParse(entry.keyLessons) ?? [],
+    favoriteQuotes: tryParse(entry.favoriteQuotes) ?? [],
+    themesAndIdeas: tryParse(entry.themesAndIdeas) ?? [],
+    characters: tryParse(entry.characters) ?? [],
+    connections: tryParse(entry.connections) ?? [],
+  };
+}
+
 export async function getEntriesForBook(bookId: string) {
   const db = getDb();
-  return db
+  const result = db
     .select()
     .from(journalEntries)
     .where(eq(journalEntries.bookId, bookId))
-    .orderBy(desc(journalEntries.createdAt));
+    .orderBy(desc(journalEntries.createdAt))
+    .all();
+  return result.map(parseEntryJson);
 }
 
 export async function getEntry(id: string) {
   const db = getDb();
-  const result = await db
+  const result = db
     .select()
     .from(journalEntries)
-    .where(eq(journalEntries.id, id));
-  return result[0] || null;
+    .where(eq(journalEntries.id, id))
+    .all();
+  return parseEntryJson(result[0]) || null;
 }
 
 export async function createEntry(data: {
@@ -38,7 +59,7 @@ export async function createEntry(data: {
   const now = new Date().toISOString();
   const id = generateId();
 
-  await db.insert(journalEntries).values({
+  db.insert(journalEntries).values({
     id,
     bookId: data.bookId,
     title: data.title,
@@ -51,7 +72,7 @@ export async function createEntry(data: {
     connections: data.connections || [],
     createdAt: now,
     updatedAt: now,
-  });
+  }).run();
 
   return id;
 }
@@ -71,13 +92,13 @@ export async function updateEntry(
 ) {
   const db = getDb();
   const now = new Date().toISOString();
-  await db
-    .update(journalEntries)
+  db.update(journalEntries)
     .set({ ...data, updatedAt: now })
-    .where(eq(journalEntries.id, id));
+    .where(eq(journalEntries.id, id))
+    .run();
 }
 
 export async function deleteEntry(id: string) {
   const db = getDb();
-  await db.delete(journalEntries).where(eq(journalEntries.id, id));
+  db.delete(journalEntries).where(eq(journalEntries.id, id)).run();
 }
