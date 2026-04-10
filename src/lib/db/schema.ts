@@ -87,6 +87,18 @@ export const bookmarks = sqliteTable("bookmarks", {
   createdAt: text("created_at").notNull(),
 });
 
+export const pdfChunks = sqliteTable("pdf_chunks", {
+  id: text("id").primaryKey(),
+  bookId: text("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  chunkIndex: integer("chunk_index").notNull(),
+  text: text("text").notNull(),
+  pageStart: integer("page_start").notNull(),
+  pageEnd: integer("page_end").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

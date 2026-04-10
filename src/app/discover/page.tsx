@@ -23,11 +23,18 @@ export default function DiscoverPage() {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
 
+  function parseRecs(recs: any[]): Recommendation[] {
+    return recs.map((r) => ({
+      ...r,
+      genres: typeof r.genres === "string" ? JSON.parse(r.genres) : r.genres || [],
+    }));
+  }
+
   useEffect(() => {
     fetch("/api/recommendations")
       .then((r) => r.json())
       .then((data) => {
-        if (data.recommendations) setRecommendations(data.recommendations);
+        if (data.recommendations) setRecommendations(parseRecs(data.recommendations));
       })
       .catch(() => {});
   }, []);
@@ -42,7 +49,7 @@ export default function DiscoverPage() {
         setError(data.error || "Failed to generate recommendations");
         return;
       }
-      setRecommendations(data.recommendations || []);
+      setRecommendations(parseRecs(data.recommendations || []));
     } catch {
       setError("Failed to connect. Check your API key in Settings.");
     } finally {
@@ -75,15 +82,15 @@ export default function DiscoverPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between animate-in animate-in-1">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Discover</h1>
-          <p className="text-sm text-muted-foreground mt-1 italic" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
+          <h1>Discover</h1>
+          <p className="quote-text text-muted-foreground mt-1 text-base">
             AI-powered book recommendations based on your reading history
           </p>
         </div>
         <button
           onClick={generateRecommendations}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground btn-primary-glow disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground btn-glow disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -168,8 +175,10 @@ export default function DiscoverPage() {
       ) : (
         !loading && (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
-            <Sparkles className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-semibold">No recommendations yet</h3>
+            <div className="ambient-ring inline-flex items-center justify-center mb-4">
+              <Sparkles className="h-12 w-12 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg not-italic">No recommendations yet</h3>
             <p className="text-muted-foreground mt-1 max-w-sm">
               Click &quot;Get Recommendations&quot; to get AI-powered book
               suggestions based on your reading history.

@@ -11,6 +11,7 @@ import {
   GalleryHorizontalEnd,
   MessageCircle,
   Sparkles,
+  Highlighter,
   Settings,
   PanelLeftClose,
   PanelLeft,
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/books", icon: Table2, label: "Books" },
   { href: "/board", icon: Kanban, label: "Board" },
   { href: "/gallery", icon: GalleryHorizontalEnd, label: "Gallery" },
+  { href: "/highlights", icon: Highlighter, label: "Highlights" },
   { href: "/chat", icon: MessageCircle, label: "Chat" },
   { href: "/discover", icon: Sparkles, label: "Discover" },
 ];
@@ -66,7 +68,7 @@ export function Sidebar() {
                   : "text-muted-foreground hover:bg-accent hover:text-foreground hover:translate-x-0.5"
               )}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              <item.icon className="h-4 w-4 shrink-0" style={isActive ? { filter: "drop-shadow(0 0 4px var(--glow-primary))" } : undefined} />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );

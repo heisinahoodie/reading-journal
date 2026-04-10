@@ -23,6 +23,16 @@ function parseEntryJson(entry: any) {
   };
 }
 
+export async function getAllEntries() {
+  const db = getDb();
+  const result = db
+    .select()
+    .from(journalEntries)
+    .orderBy(desc(journalEntries.createdAt))
+    .all();
+  return result.map(parseEntryJson);
+}
+
 export async function getEntriesForBook(bookId: string) {
   const db = getDb();
   const result = db

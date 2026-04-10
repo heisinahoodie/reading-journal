@@ -181,7 +181,7 @@ export function BooksClient({ books }: { books: Book[] }) {
 
         <button
           onClick={() => setDialogOpen(true)}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground btn-primary-glow"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground btn-glow"
         >
           <Plus size={16} />
           Add Book

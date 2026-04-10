@@ -8,10 +8,8 @@ export default async function BooksPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="animate-in animate-in-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Library
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground italic" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
+        <h1>Library</h1>
+        <p className="quote-text text-muted-foreground mt-1 text-base">
           {books.length} {books.length === 1 ? "book" : "books"} in your
           collection
         </p>

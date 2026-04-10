@@ -36,6 +36,7 @@ type Book = {
   author: string;
   genres: string[];
   status: string;
+  pdfPath?: string | null;
 };
 
 type Message = {
@@ -44,6 +45,100 @@ type Message = {
   content: string;
   createdAt: string;
 };
+
+function renderMarkdown(text: string): React.ReactNode {
+  const blocks = text.split(/\n\n+/);
+
+  return blocks.map((block, blockIndex) => {
+    const trimmed = block.trim();
+    if (!trimmed) return null;
+
+    // Headings
+    if (trimmed.startsWith("### ")) {
+      return (
+        <h4
+          key={blockIndex}
+          className="text-sm font-bold mt-3 mb-1 text-card-foreground"
+        >
+          {renderInline(trimmed.slice(4))}
+        </h4>
+      );
+    }
+    if (trimmed.startsWith("## ")) {
+      return (
+        <h3
+          key={blockIndex}
+          className="text-sm font-bold mt-3 mb-1 text-card-foreground"
+        >
+          {renderInline(trimmed.slice(3))}
+        </h3>
+      );
+    }
+
+    // Bullet list: consecutive lines starting with - or *
+    const lines = trimmed.split("\n");
+    const isList = lines.every(
+      (l) => /^[-*]\s+/.test(l.trim()) || l.trim() === ""
+    );
+    if (isList) {
+      return (
+        <ul key={blockIndex} className="list-disc list-inside space-y-0.5 my-1">
+          {lines
+            .filter((l) => l.trim() !== "")
+            .map((line, li) => (
+              <li key={li} className="text-sm leading-relaxed">
+                {renderInline(line.trim().replace(/^[-*]\s+/, ""))}
+              </li>
+            ))}
+        </ul>
+      );
+    }
+
+    // Regular paragraph
+    return (
+      <p key={blockIndex} className="my-1">
+        {renderInline(trimmed)}
+      </p>
+    );
+  });
+}
+
+function renderInline(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+)`)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    if (match[2] != null) {
+      parts.push(<strong key={key++}>{match[2]}</strong>);
+    } else if (match[3] != null) {
+      parts.push(<em key={key++}>{match[3]}</em>);
+    } else if (match[4] != null) {
+      parts.push(
+        <code
+          key={key++}
+          className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-primary"
+        >
+          {match[4]}
+        </code>
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length === 1 ? parts[0] : parts;
+}
 
 export function ChatClient({
   initialConversations,
@@ -64,6 +159,7 @@ export function ChatClient({
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [showBookPicker, setShowBookPicker] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [chatStarted, setChatStarted] = useState(false);
   const [savingMessageId, setSavingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -103,6 +199,7 @@ export function ChatClient({
     setMessages([]);
     setInput("");
     setSelectedBookId(null);
+    setChatStarted(true);
   }
 
   async function handleSend() {
@@ -285,9 +382,9 @@ export function ChatClient({
     }
   }
 
-  async function handleSaveAsEntry(message: Message) {
-    if (!selectedBookId) return;
-    setSavingMessageId(message.id);
+  async function handleSaveAsEntry() {
+    if (!selectedBookId || !activeConversationId) return;
+    setSavingMessageId("synthesizing");
 
     try {
       const res = await fetch("/api/chat", {
@@ -295,7 +392,7 @@ export function ChatClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookId: selectedBookId,
-          content: message.content,
+          conversationId: activeConversationId,
         }),
       });
 
@@ -328,8 +425,29 @@ export function ChatClient({
     (c) => c.id === activeConversationId
   );
 
-  // No API key message
-  if (conversations.length === 0 && messages.length === 0) {
+  function getSuggestions(): string[] {
+    if (!selectedBook) {
+      return [
+        "Recommend a book for me",
+        "What should I read next?",
+        "Compare two books I've read",
+      ];
+    }
+    const suggestions = [
+      `What are the main themes of "${selectedBook.title}"?`,
+      `Analyze the characters in this book`,
+    ];
+    if (selectedBook.pdfPath) {
+      suggestions.push("Discuss chapter 1 with me");
+    } else {
+      suggestions.push("What's the significance of the title?");
+    }
+    suggestions.push(`Recommend books similar to "${selectedBook.title}"`);
+    return suggestions;
+  }
+
+  // Show intro screen only when no conversations exist and user hasn't clicked start
+  if (conversations.length === 0 && messages.length === 0 && !chatStarted) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
         <div className="max-w-md text-center space-y-6">
@@ -381,7 +499,7 @@ export function ChatClient({
         <div className="p-3 border-b border-border">
           <button
             onClick={startNewChat}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground btn-glow"
           >
             <Plus className="h-4 w-4" />
             New Chat
@@ -486,12 +604,17 @@ export function ChatClient({
                       )}
                     >
                       <BookOpen className="h-4 w-4 shrink-0" />
-                      <div className="text-left min-w-0">
+                      <div className="text-left min-w-0 flex-1">
                         <p className="truncate font-medium">{book.title}</p>
                         <p className="text-xs text-muted-foreground truncate">
                           {book.author}
                         </p>
                       </div>
+                      {book.pdfPath && (
+                        <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+                          PDF
+                        </span>
+                      )}
                     </button>
                   ))}
                   {books.length === 0 && (
@@ -503,6 +626,13 @@ export function ChatClient({
               )}
             </div>
 
+            {selectedBook?.pdfPath && (
+              <span className="flex items-center gap-1 text-xs text-primary/70">
+                <FileText className="h-3 w-3" />
+                PDF content available
+              </span>
+            )}
+
             {activeConversation && (
               <span className="text-sm font-medium text-foreground">
                 {activeConversation.title}
@@ -511,18 +641,34 @@ export function ChatClient({
           </div>
 
           {activeConversationId && messages.length > 0 && (
-            <button
-              onClick={handleSummarize}
-              disabled={isSummarizing}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              {isSummarizing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <FileText className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2">
+              {selectedBookId && (
+                <button
+                  onClick={handleSaveAsEntry}
+                  disabled={savingMessageId === "synthesizing"}
+                  className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                >
+                  {savingMessageId === "synthesizing" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  Save as Journal Entry
+                </button>
               )}
-              Summarize
-            </button>
+              <button
+                onClick={handleSummarize}
+                disabled={isSummarizing}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                {isSummarizing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+                Summarize
+              </button>
+            </div>
           )}
         </div>
 
@@ -545,11 +691,7 @@ export function ChatClient({
                     : "Select a book for context or just start a general literary discussion. Ask about themes, get recommendations, or explore ideas."}
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
-                  {[
-                    "What are the main themes?",
-                    "Analyze the protagonist",
-                    "Similar books?",
-                  ].map((suggestion) => (
+                  {getSuggestions().map((suggestion) => (
                     <button
                       key={suggestion}
                       onClick={() => setInput(suggestion)}
@@ -575,64 +717,27 @@ export function ChatClient({
                 className={cn(
                   "max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
                   msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "bg-card border border-border text-card-foreground rounded-bl-md"
+                    ? "message-user text-foreground rounded-br-md"
+                    : "message-assistant text-card-foreground rounded-bl-md"
                 )}
               >
-                <div className="whitespace-pre-wrap break-words">
-                  {msg.content}
-                  {msg.role === "assistant" &&
-                    isLoading &&
-                    msg.content === "" && (
+                {msg.role === "assistant" ? (
+                  <div className="break-words prose-sm">
+                    {msg.content ? renderMarkdown(msg.content) : null}
+                    {isLoading && msg.content === "" && (
                       <span className="inline-flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:-0.3s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:-0.15s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" />
                       </span>
                     )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap break-words">
+                    {msg.content}
+                  </div>
+                )}
 
-                {msg.role === "assistant" &&
-                  msg.content &&
-                  !msg.id.startsWith("temp-") && (
-                    <div className="mt-2 pt-2 border-t border-border/50 flex items-center gap-2">
-                      {selectedBookId && (
-                        <button
-                          onClick={() => handleSaveAsEntry(msg)}
-                          disabled={savingMessageId === msg.id}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                        >
-                          {savingMessageId === msg.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Save className="h-3 w-3" />
-                          )}
-                          Save as Entry
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                {msg.role === "assistant" &&
-                  msg.content &&
-                  msg.id.startsWith("temp-") &&
-                  !isLoading &&
-                  selectedBookId && (
-                    <div className="mt-2 pt-2 border-t border-border/50 flex items-center gap-2">
-                      <button
-                        onClick={() => handleSaveAsEntry(msg)}
-                        disabled={savingMessageId === msg.id}
-                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                      >
-                        {savingMessageId === msg.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Save className="h-3 w-3" />
-                        )}
-                        Save as Entry
-                      </button>
-                    </div>
-                  )}
               </div>
             </div>
           ))}

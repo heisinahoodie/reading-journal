@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { updateBook } from "@/lib/actions/books";
+import { extractAndStoreChunks } from "@/lib/pdf-extract";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +29,14 @@ export async function POST(request: NextRequest) {
       await mkdir(uploadDir, { recursive: true });
       filePath = path.join(uploadDir, file.name);
       await writeFile(filePath, buffer);
-      await updateBook(bookId, { pdfPath: filePath });
+      // Store relative path so the file-serving API can resolve it
+      const relativePath = `pdfs/${bookId}/${file.name}`;
+      await updateBook(bookId, { pdfPath: relativePath });
+
+      // Extract text from PDF in the background for AI chat
+      extractAndStoreChunks(bookId, relativePath).catch((err) =>
+        console.error("PDF extraction failed:", err)
+      );
     } else {
       uploadDir = path.join(process.cwd(), "data", "uploads", "covers");
       await mkdir(uploadDir, { recursive: true });

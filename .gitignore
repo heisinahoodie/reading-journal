@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local data (database, uploads, user content)
+/data/
+
+# claude local settings
+.claude/settings.local.json
+.claude/worktrees/

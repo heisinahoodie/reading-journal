@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { recommendations, books } from "@/lib/db/schema";
+import { recommendations, books, settings } from "@/lib/db/schema";
 import { getApiKey } from "@/lib/actions/conversations";
 import { getBooks, createBook } from "@/lib/actions/books";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
+
+function getModel(): string {
+  const db = getDb();
+  const result = db.select().from(settings).where(eq(settings.key, "ai_model")).all();
+  return result[0]?.value || "claude-sonnet-4-20250514";
+}
 
 export async function GET() {
   try {
@@ -37,10 +43,11 @@ export async function POST() {
     const { createAnthropic } = await import("@ai-sdk/anthropic");
     const { generateText } = await import("ai");
 
-    const anthropic = createAnthropic({ apiKey });
+    const anthropic = createAnthropic({ apiKey, baseURL: "https://api.anthropic.com/v1" });
+    const modelId = getModel();
 
     const { text } = await generateText({
-      model: anthropic("claude-sonnet-4-5-20250514"),
+      model: anthropic(modelId),
       prompt: `Based on this reading history, recommend exactly 5 books the reader would enjoy. Return ONLY a JSON array with no other text.
 
 Reading history:
@@ -95,8 +102,22 @@ Return format (JSON array only):
     const allRecs = db.select().from(recommendations).all();
     return NextResponse.json({ recommendations: allRecs });
   } catch (error: any) {
+    const msg = error.message || "Failed to generate recommendations";
+    // Surface friendly errors for common issues
+    if (msg.includes("401") || msg.includes("authentication") || msg.includes("invalid")) {
+      return NextResponse.json(
+        { error: "Invalid API key. Check your key in Settings." },
+        { status: 401 }
+      );
+    }
+    if (msg.includes("model") || msg.includes("not_found")) {
+      return NextResponse.json(
+        { error: "Model not available. Try changing the AI model in Settings." },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
-      { error: error.message || "Failed to generate recommendations" },
+      { error: msg },
       { status: 500 }
     );
   }

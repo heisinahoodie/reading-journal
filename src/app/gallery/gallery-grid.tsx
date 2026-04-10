@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -81,6 +82,21 @@ const filters: { value: FilterValue; label: string }[] = [
 function GalleryCard({ book }: { book: Book }) {
   const gradient = getGradient(book.title);
   const initials = getInitials(book.title);
+  const [coverUrl, setCoverUrl] = useState<string | null>(book.coverImageUrl);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    if (!coverUrl && !imgError) {
+      fetch(`/api/covers?bookId=${book.id}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.coverUrl) setCoverUrl(data.coverUrl);
+        })
+        .catch(() => {});
+    }
+  }, [book.id, coverUrl, imgError]);
+
+  const showCover = coverUrl && !imgError;
 
   return (
     <Link
@@ -94,13 +110,25 @@ function GalleryCard({ book }: { book: Book }) {
           gradient
         )}
       >
-        <span className="text-3xl font-bold text-white/70 select-none tracking-widest" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
-          {initials}
-        </span>
-
-        {/* Decorative book spine line */}
-        <div className="absolute inset-y-0 left-3 w-px bg-white/10" />
-        <div className="absolute inset-y-0 left-4 w-px bg-white/5" />
+        {showCover ? (
+          <Image
+            src={coverUrl}
+            alt={book.title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <>
+            <span className="text-3xl font-bold text-white/70 select-none tracking-widest" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
+              {initials}
+            </span>
+            {/* Decorative book spine line */}
+            <div className="absolute inset-y-0 left-3 w-px bg-white/10" />
+            <div className="absolute inset-y-0 left-4 w-px bg-white/5" />
+          </>
+        )}
 
         {/* Status badge overlay */}
         <div className="absolute top-2 right-2">
@@ -109,6 +137,25 @@ function GalleryCard({ book }: { book: Book }) {
 
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+
+        {/* Reading progress bar overlay */}
+        {book.status === "reading" &&
+          book.currentPage != null &&
+          book.totalPages != null &&
+          book.totalPages > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 px-2 pb-2">
+              <div className="h-1 rounded-full bg-black/30 overflow-hidden backdrop-blur-sm">
+                <div
+                  className="h-full rounded-full progress-glow transition-all"
+                  style={{
+                    width: `${Math.round(
+                      (book.currentPage / book.totalPages) * 100
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
       </div>
 
       {/* Info */}

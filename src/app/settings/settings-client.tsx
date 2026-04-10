@@ -6,9 +6,6 @@ import { setApiKey } from "@/lib/actions/conversations";
 import {
   Save,
   Key,
-  Sun,
-  Moon,
-  Monitor,
   Palette,
   Bot,
   Check,
@@ -16,10 +13,67 @@ import {
   EyeOff,
 } from "lucide-react";
 
+const themeOptions = [
+  {
+    value: "dark",
+    label: "Obsidian",
+    description: "Pure black, amber embers",
+    bg: "#000000",
+    card: "#0a0a0c",
+    primary: "#c9982e",
+    fg: "#e4e2dd",
+  },
+  {
+    value: "light",
+    label: "Parchment",
+    description: "Aged paper, warm sepia",
+    bg: "#f3ece0",
+    card: "#faf6ef",
+    primary: "#8b6914",
+    fg: "#1c1917",
+  },
+  {
+    value: "forest",
+    label: "Forest",
+    description: "Deep evergreen, moss glow",
+    bg: "#0a1a0f",
+    card: "#0f2016",
+    primary: "#4ade80",
+    fg: "#d4e0d8",
+  },
+  {
+    value: "ocean",
+    label: "Ocean",
+    description: "Deep sea blue, calming tides",
+    bg: "#070d1a",
+    card: "#0c1526",
+    primary: "#38bdf8",
+    fg: "#d0daea",
+  },
+  {
+    value: "rose",
+    label: "Rose",
+    description: "Warm blush on cream",
+    bg: "#faf5f5",
+    card: "#fff8f8",
+    primary: "#e11d48",
+    fg: "#1c1517",
+  },
+  {
+    value: "midnight",
+    label: "Midnight",
+    description: "Indigo twilight, violet glow",
+    bg: "#09090f",
+    card: "#0e0e18",
+    primary: "#a78bfa",
+    fg: "#ddd8ea",
+  },
+];
+
 const models = [
-  { id: "claude-sonnet-4-5-20250514", label: "Claude Sonnet 4.5 (Recommended)" },
-  { id: "claude-opus-4-6-20250514", label: "Claude Opus 4.6 (Deep analysis)" },
-  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Fast)" },
+  { id: "claude-sonnet-4-20250514", label: "Claude Sonnet (Recommended)" },
+  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku (Fast & cheap)" },
+  { id: "claude-opus-4-20250514", label: "Claude Opus (Deep analysis)" },
 ];
 
 export function SettingsClient({
@@ -48,24 +102,20 @@ export function SettingsClient({
     }
   }
 
-  async function handleSaveModel() {
-    setSaving(true);
-    try {
-      // Save model preference via a simple fetch
-      await fetch("/api/seed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-    } finally {
-      setSaving(false);
-    }
+  async function handleSaveModel(modelId: string) {
+    setModel(modelId);
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "ai_model", value: modelId }),
+    });
   }
 
   return (
     <div className="max-w-2xl space-y-8">
       <div className="animate-in animate-in-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1 italic" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
+        <h1>Settings</h1>
+        <p className="quote-text text-muted-foreground mt-1 text-base">
           Configure your reading journal
         </p>
       </div>
@@ -124,23 +174,57 @@ export function SettingsClient({
         <p className="text-sm text-muted-foreground">
           Choose your preferred appearance.
         </p>
-        <div className="flex gap-2">
-          {[
-            { value: "dark", icon: Moon, label: "Dark (Obsidian)" },
-            { value: "light", icon: Sun, label: "Light (Parchment)" },
-            { value: "system", icon: Monitor, label: "System" },
-          ].map(({ value, icon: Icon, label }) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {themeOptions.map((t) => (
             <button
-              key={value}
-              onClick={() => setTheme(value)}
-              className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
-                theme === value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:bg-accent"
+              key={t.value}
+              onClick={() => setTheme(t.value)}
+              className={`group relative rounded-xl border-2 p-1 transition-all duration-200 ${
+                theme === t.value
+                  ? "border-primary ring-1 ring-primary/30 scale-[1.02]"
+                  : "border-border hover:border-primary/40 hover:scale-[1.01]"
               }`}
             >
-              <Icon className="h-4 w-4" />
-              {label}
+              {/* Mini preview */}
+              <div
+                className="rounded-lg overflow-hidden h-20 relative"
+                style={{ background: t.bg }}
+              >
+                {/* Fake sidebar */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-6"
+                  style={{ background: t.card, borderRight: `1px solid ${t.primary}22` }}
+                >
+                  <div className="mt-2 mx-1 space-y-1">
+                    <div className="h-1 rounded-full" style={{ background: t.primary, opacity: 0.7 }} />
+                    <div className="h-1 rounded-full" style={{ background: t.fg, opacity: 0.15 }} />
+                    <div className="h-1 rounded-full" style={{ background: t.fg, opacity: 0.15 }} />
+                  </div>
+                </div>
+                {/* Fake content */}
+                <div className="absolute left-8 top-2 right-2 space-y-1.5">
+                  <div className="h-2 w-16 rounded-sm" style={{ background: t.fg, opacity: 0.3 }} />
+                  <div className="flex gap-1">
+                    <div className="h-8 flex-1 rounded" style={{ background: t.card }} />
+                    <div className="h-8 flex-1 rounded" style={{ background: t.card }} />
+                  </div>
+                  <div className="h-3 w-12 rounded-sm" style={{ background: t.primary, opacity: 0.5 }} />
+                </div>
+                {/* Active checkmark */}
+                {theme === t.value && (
+                  <div
+                    className="absolute top-1 right-1 h-4 w-4 rounded-full flex items-center justify-center"
+                    style={{ background: t.primary }}
+                  >
+                    <Check className="h-2.5 w-2.5" style={{ color: t.bg }} />
+                  </div>
+                )}
+              </div>
+              {/* Label */}
+              <div className="px-1.5 py-1.5 text-left">
+                <p className="text-xs font-semibold">{t.label}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{t.description}</p>
+              </div>
             </button>
           ))}
         </div>
@@ -170,7 +254,7 @@ export function SettingsClient({
                 name="model"
                 value={m.id}
                 checked={model === m.id}
-                onChange={() => setModel(m.id)}
+                onChange={() => handleSaveModel(m.id)}
                 className="accent-primary"
               />
               <span className="text-sm font-medium">{m.label}</span>

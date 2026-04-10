@@ -108,6 +108,16 @@ export function getDb() {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS pdf_chunks (
+        id TEXT PRIMARY KEY,
+        book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+        chunk_index INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        page_start INTEGER NOT NULL,
+        page_end INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
     `);
   }
   return db;

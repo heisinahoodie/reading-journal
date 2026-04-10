@@ -72,12 +72,12 @@ export function AddBookDialog({ open, onClose }: AddBookDialogProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 dialog-backdrop"
         onClick={handleClose}
       />
 
       {/* Dialog */}
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl animate-in animate-in-1">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-card-foreground">
@@ -211,7 +211,7 @@ export function AddBookDialog({ open, onClose }: AddBookDialogProps) {
             <button
               type="submit"
               disabled={isPending || !title.trim()}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground btn-glow disabled:opacity-50"
             >
               {isPending ? (
                 <Loader2 size={16} className="animate-spin" />

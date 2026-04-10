@@ -110,7 +110,7 @@ function SortableBookCard({ book }: { book: Book }) {
         </button>
 
         {/* Cover thumbnail */}
-        <div className="h-12 w-9 shrink-0 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+        <div className="h-12 w-9 shrink-0 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center book-spine">
           <BookOpen className="h-4 w-4 text-primary/60" />
         </div>
 
@@ -134,7 +134,7 @@ function SortableBookCard({ book }: { book: Book }) {
               </div>
               <div className="h-1 rounded-full bg-muted overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-blue-500 transition-all"
+                  className="h-full rounded-full progress-glow transition-all"
                   style={{
                     width: `${getProgressPercent(book.currentPage, book.totalPages)}%`,
                   }}
@@ -163,7 +163,7 @@ function DragOverlayCard({ book }: { book: Book }) {
         <div className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground/40">
           <GripVertical size={16} />
         </div>
-        <div className="h-12 w-9 shrink-0 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+        <div className="h-12 w-9 shrink-0 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center book-spine">
           <BookOpen className="h-4 w-4 text-primary/60" />
         </div>
         <div className="flex-1 min-w-0">

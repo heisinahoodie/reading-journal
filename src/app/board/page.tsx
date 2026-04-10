@@ -13,8 +13,8 @@ export default async function BoardPage() {
   return (
     <div className="space-y-6">
       <div className="animate-in animate-in-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Board</h1>
-        <p className="text-muted-foreground mt-1 italic" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>
+        <h1>Board</h1>
+        <p className="quote-text text-muted-foreground mt-1 text-base">
           Drag books between columns to update their status
         </p>
       </div>
