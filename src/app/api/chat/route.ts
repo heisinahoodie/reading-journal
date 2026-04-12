@@ -18,6 +18,7 @@ import {
   getRelevantChunks,
   hasExtractedChunks,
   extractAndStoreChunks,
+  extractAndStoreEpubChunks,
 } from "@/lib/pdf-extract";
 
 function getApiKey(): string | null {
@@ -92,11 +93,21 @@ Progress: ${book.currentPage || 0}/${book.totalPages || "?"} pages`;
         const hasChunks = hasExtractedChunks(bookId!);
         if (!hasChunks) {
           // Trigger extraction in background for next time
-          extractAndStoreChunks(bookId!, book.pdfPath).catch((err) =>
-            console.error("PDF extraction failed:", err)
-          );
+          const isEpub = book.pdfPath.toLowerCase().endsWith(".epub");
+          if (isEpub) {
+            extractAndStoreEpubChunks(bookId!, book.pdfPath).catch((err) =>
+              console.error("EPUB extraction failed:", err)
+            );
+          } else {
+            extractAndStoreChunks(bookId!, book.pdfPath).catch((err) =>
+              console.error("PDF extraction failed:", err)
+            );
+          }
         } else {
-          const relevantChunks = getRelevantChunks(bookId!, userMessage, 10, book.currentPage);
+          // Use more chunks for chapter-specific queries, fewer for general questions
+          const isChapterQuery = /chapter|ch\.?\s*\d|part\s+\d/i.test(userMessage);
+          const chunkLimit = isChapterQuery ? 20 : 12;
+          const relevantChunks = getRelevantChunks(bookId!, userMessage, chunkLimit, book.currentPage);
           if (relevantChunks.length > 0) {
             systemPrompt += `\n\n--- BOOK TEXT EXCERPTS ---
 The following are relevant passages from the actual book text, matched to the reader's question. Use these to provide specific, textually-grounded responses. Reference page numbers when citing passages.\n`;

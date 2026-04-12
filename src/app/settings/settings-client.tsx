@@ -11,6 +11,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  Target,
 } from "lucide-react";
 
 const themeOptions = [
@@ -79,13 +80,17 @@ const models = [
 export function SettingsClient({
   currentApiKey,
   currentModel,
+  currentReadingGoal,
 }: {
   currentApiKey: string;
   currentModel: string;
+  currentReadingGoal: string;
 }) {
   const { theme, setTheme } = useTheme();
   const [apiKey, setApiKeyState] = useState(currentApiKey);
   const [model, setModel] = useState(currentModel);
+  const [readingGoal, setReadingGoal] = useState(currentReadingGoal);
+  const [goalSaved, setGoalSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -109,6 +114,18 @@ export function SettingsClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: "ai_model", value: modelId }),
     });
+  }
+
+  async function handleSaveGoal() {
+    const goal = parseInt(readingGoal);
+    if (isNaN(goal) || goal < 1) return;
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "yearly_reading_goal", value: String(goal) }),
+    });
+    setGoalSaved(true);
+    setTimeout(() => setGoalSaved(false), 2000);
   }
 
   return (
@@ -263,8 +280,43 @@ export function SettingsClient({
         </div>
       </section>
 
+      {/* Reading Goal */}
+      <section className="rounded-xl border border-border bg-card p-6 space-y-4 animate-in animate-in-5">
+        <div className="flex items-center gap-2">
+          <Target className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Reading Goal</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Set a yearly reading goal to track how many books you want to finish this year.
+        </p>
+        <div className="flex gap-2 items-center">
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={readingGoal}
+            onChange={(e) => setReadingGoal(e.target.value)}
+            placeholder="e.g. 24"
+            className="w-24 rounded-lg bg-background border border-border px-4 py-2.5 text-sm text-center"
+          />
+          <span className="text-sm text-muted-foreground">books this year</span>
+          <button
+            onClick={handleSaveGoal}
+            disabled={!readingGoal || parseInt(readingGoal) < 1}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 ml-auto"
+          >
+            {goalSaved ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {goalSaved ? "Saved!" : "Save"}
+          </button>
+        </div>
+      </section>
+
       {/* About */}
-      <section className="rounded-xl border border-border bg-card p-6 space-y-3 animate-in animate-in-5">
+      <section className="rounded-xl border border-border bg-card p-6 space-y-3 animate-in animate-in-6">
         <h2 className="text-lg font-semibold">About</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Reading Journal is your personal AI-powered reading companion. Track

@@ -21,6 +21,9 @@ import {
   BookOpenCheck,
   ImagePlus,
   Trash2,
+  Replace,
+  X,
+  RefreshCw,
 } from "lucide-react";
 import { cn, formatDate, getProgressPercent } from "@/lib/utils";
 import { updateBook } from "@/lib/actions/books";
@@ -32,6 +35,7 @@ import {
 } from "@/lib/constants";
 import { StatusBadge } from "@/components/books/status-badge";
 import { RatingStars } from "@/components/books/rating-stars";
+import { ExportBookNotes } from "@/components/highlights/export-book-notes";
 
 type Book = {
   id: string;
@@ -109,6 +113,11 @@ export function BookDetailClient({
   const [coverUrl, setCoverUrl] = useState(book.coverImageUrl);
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const [showFileMenu, setShowFileMenu] = useState(false);
+  const [deletingFile, setDeletingFile] = useState(false);
+  const [replacingFile, setReplacingFile] = useState(false);
+  const [reindexing, setReindexing] = useState(false);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
 
   const progress = getProgressPercent(book.currentPage, book.totalPages);
   const moodEntry = READING_MOODS.find((m) => m.value === book.readingMood);
@@ -142,6 +151,67 @@ export function BookDetailClient({
       }
     } finally {
       setUploadingCover(false);
+    }
+  }
+
+  async function handleDeleteFile() {
+    if (!book.pdfPath) return;
+    setDeletingFile(true);
+    try {
+      const res = await fetch("/api/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId: book.id, pdfPath: book.pdfPath }),
+      });
+      if (res.ok) {
+        setShowFileMenu(false);
+        router.refresh();
+      }
+    } finally {
+      setDeletingFile(false);
+    }
+  }
+
+  async function handleReplaceFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReplacingFile(true);
+    try {
+      // Delete existing file first
+      if (book.pdfPath) {
+        await fetch("/api/upload", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookId: book.id, pdfPath: book.pdfPath }),
+        });
+      }
+      // Upload new file
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("bookId", book.id);
+      formData.append("type", file.name.endsWith(".epub") ? "epub" : "pdf");
+      await fetch("/api/upload", { method: "POST", body: formData });
+      setShowFileMenu(false);
+      router.refresh();
+    } finally {
+      setReplacingFile(false);
+    }
+  }
+
+  async function handleReindex() {
+    if (!book.pdfPath) return;
+    setReindexing(true);
+    try {
+      const res = await fetch("/api/upload", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId: book.id, pdfPath: book.pdfPath }),
+      });
+      if (res.ok) {
+        setShowFileMenu(false);
+      }
+    } finally {
+      setReindexing(false);
     }
   }
 
@@ -305,34 +375,50 @@ export function BookDetailClient({
         {/* Current Page */}
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="label-caps mb-2">Progress</p>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              defaultValue={book.currentPage ?? 0}
-              min={0}
-              max={book.totalPages ?? undefined}
-              onBlur={(e) => handlePageChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <span className="text-sm text-muted-foreground">
-              / {book.totalPages ?? "?"}
-            </span>
-          </div>
-          {book.totalPages && (
-            <div className="mt-2">
+          {book.pdfPath?.endsWith(".epub") ? (
+            // EPUB: currentPage stores percentage (0–100)
+            <div>
               <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full rounded-full progress-glow transition-all"
-                  style={{ width: `${progress}%` }}
+                  style={{ width: `${book.currentPage ?? 0}%` }}
                 />
               </div>
-              <p className="mt-1.5 label-caps">{progress}% complete</p>
+              <p className="mt-1.5 label-caps">{book.currentPage ?? 0}% complete</p>
             </div>
+          ) : (
+            // PDF: currentPage is a page number
+            <>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  defaultValue={book.currentPage ?? 0}
+                  min={0}
+                  max={book.totalPages ?? undefined}
+                  onBlur={(e) => handlePageChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <span className="text-sm text-muted-foreground">
+                  / {book.totalPages ?? "?"}
+                </span>
+              </div>
+              {book.totalPages && (
+                <div className="mt-2">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full progress-glow transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 label-caps">{progress}% complete</p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -398,36 +484,124 @@ export function BookDetailClient({
           <Plus size={16} />
           Add Entry
         </Link>
-        <Link
-          href={`/books/${book.id}/reader`}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-card-foreground transition-colors hover:bg-accent"
-        >
-          <BookOpenCheck size={16} />
-          {book.pdfPath ? "Read PDF" : "Upload PDF"}
-        </Link>
+        <div className="relative">
+          <Link
+            href={`/books/${book.id}/reader`}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-card-foreground transition-colors hover:bg-accent"
+          >
+            <BookOpenCheck size={16} />
+            {book.pdfPath
+              ? book.pdfPath.endsWith(".epub")
+                ? "Read EPUB"
+                : "Read PDF"
+              : "Upload File"}
+          </Link>
+          {book.pdfPath && (
+            <>
+              <button
+                onClick={() => setShowFileMenu(!showFileMenu)}
+                className="ml-1 inline-flex items-center justify-center h-[42px] w-8 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="File options"
+              >
+                <FileUp size={14} />
+              </button>
+              {showFileMenu && (
+                <div className="absolute right-0 bottom-full mb-2 w-56 rounded-xl border border-border bg-card shadow-xl z-[100] overflow-hidden">
+                  <div className="p-2 border-b border-border">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-2 py-1">
+                      {book.pdfPath.endsWith(".epub") ? "EPUB" : "PDF"}: {book.pdfPath.split("/").pop()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => replaceInputRef.current?.click()}
+                    disabled={replacingFile}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                  >
+                    {replacingFile ? (
+                      <Loader2 size={14} className="animate-spin text-primary" />
+                    ) : (
+                      <Replace size={14} className="text-primary" />
+                    )}
+                    Replace with PDF or EPUB
+                  </button>
+                  <button
+                    onClick={handleReindex}
+                    disabled={reindexing}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                  >
+                    {reindexing ? (
+                      <Loader2 size={14} className="animate-spin text-primary" />
+                    ) : (
+                      <RefreshCw size={14} className="text-primary" />
+                    )}
+                    {reindexing ? "Re-indexing..." : "Re-index for AI chat"}
+                  </button>
+                  <button
+                    onClick={handleDeleteFile}
+                    disabled={deletingFile}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-red-500/10 transition-colors text-left text-red-400"
+                  >
+                    {deletingFile ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+                    Remove file
+                  </button>
+                </div>
+              )}
+              <input
+                ref={replaceInputRef}
+                type="file"
+                accept=".pdf,.epub"
+                className="hidden"
+                onChange={handleReplaceFile}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-border animate-in animate-in-5">
-        <div className="flex gap-1">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative",
-                  activeTab === tab.key
-                    ? "text-primary tab-active"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon size={15} />
-                {tab.label}
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative",
+                    activeTab === tab.key
+                      ? "text-primary tab-active"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon size={15} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <ExportBookNotes
+            book={{
+              title: book.title,
+              author: book.author,
+              quotes: book.favoriteQuotes ?? [],
+              lessons: book.keyLessons ?? [],
+              entries: entries.map((e) => ({
+                title: e.title,
+                chapterRange: e.chapterRange,
+                thoughts: e.thoughts,
+                quotes: e.favoriteQuotes ?? [],
+                lessons: e.keyLessons ?? [],
+                themes: e.themesAndIdeas ?? [],
+                characters: e.characters ?? [],
+              })),
+            }}
+          />
         </div>
       </div>
 

@@ -99,6 +99,25 @@ export const pdfChunks = sqliteTable("pdf_chunks", {
   createdAt: text("created_at").notNull(),
 });
 
+export const shelves = sqliteTable("shelves", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  color: text("color").default("#c9982e"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: text("created_at").notNull(),
+});
+
+export const shelfBooks = sqliteTable("shelf_books", {
+  id: text("id").primaryKey(),
+  shelfId: text("shelf_id")
+    .notNull()
+    .references(() => shelves.id, { onDelete: "cascade" }),
+  bookId: text("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  addedAt: text("added_at").notNull(),
+});
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

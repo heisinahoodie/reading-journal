@@ -143,9 +143,11 @@ function renderInline(text: string): React.ReactNode {
 export function ChatClient({
   initialConversations,
   books,
+  initialBookId = null,
 }: {
   initialConversations: Conversation[];
   books: Book[];
+  initialBookId?: string | null;
 }) {
   const router = useRouter();
   const [conversations, setConversations] =
@@ -156,10 +158,10 @@ export function ChatClient({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(initialBookId);
   const [showBookPicker, setShowBookPicker] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
-  const [chatStarted, setChatStarted] = useState(false);
+  const [chatStarted, setChatStarted] = useState(!!initialBookId);
   const [savingMessageId, setSavingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
