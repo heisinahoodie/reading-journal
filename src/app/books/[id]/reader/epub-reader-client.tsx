@@ -107,15 +107,46 @@ export function EpubReaderClient({
 }: EpubReaderClientProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+
+  // Reader appearance — defaults match server render; localStorage applied after mount
   const [readerTheme, setReaderTheme] = useState<ReaderTheme>("dark");
   const [readerFont, setReaderFont] = useState("georgia");
   const [fontColor, setFontColor] = useState<string | null>(null);
+  const [fontSize, setFontSize] = useState(100);
+
+  // Refs so stale closures (e.g. the `rendered` event) always read fresh values
+  const readerThemeRef = useRef(readerTheme);
+  const readerFontRef = useRef(readerFont);
+  const fontColorRef = useRef(fontColor);
+  const fontSizeRef = useRef(fontSize);
+
+  // Restore persisted settings from localStorage after hydration (safe — client only)
+  useEffect(() => {
+    // Clear any corrupted epub-locs entries (double-encoded from earlier bug)
+    try {
+      const locKey = `epub-locs-${bookId}`;
+      const raw = localStorage.getItem(locKey);
+      if (raw && raw.startsWith('"')) {
+        // Double-encoded — nuke it so it gets regenerated cleanly
+        localStorage.removeItem(locKey);
+      }
+    } catch {}
+
+    const theme = localStorage.getItem("reader-theme") as ReaderTheme | null;
+    const font  = localStorage.getItem("reader-font");
+    const color = localStorage.getItem("reader-font-color");
+    const size  = parseInt(localStorage.getItem("reader-font-size") || "", 10);
+    if (theme) setReaderTheme(theme);
+    if (font)  setReaderFont(font);
+    if (color) setFontColor(color);
+    if (!isNaN(size)) setFontSize(size);
+  }, []);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showToc, setShowToc] = useState(false);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showBars, setShowBars] = useState(true);
-  const [fontSize, setFontSize] = useState(100);
   const [currentChapter, setCurrentChapter] = useState("");
   const [currentChapterLabel, setCurrentChapterLabel] = useState("");
   const [progress, setProgress] = useState(0);
@@ -202,8 +233,8 @@ export function EpubReaderClient({
 
       renditionRef.current = rendition;
 
-      // Apply theme
-      applyTheme(rendition, readerTheme, fontSize, readerFont, fontColor);
+      // Apply theme (use refs — state values are stale inside this closure)
+      applyTheme(rendition, readerThemeRef.current, fontSizeRef.current, readerFontRef.current, fontColorRef.current);
 
       // Restore saved position — prefer exact CFI from localStorage,
       // fall back to approximate chapter via stored percentage from DB
@@ -253,25 +284,37 @@ export function EpubReaderClient({
         if (!mounted) return;
         const locKey = `epub-locs-${bookId}`;
         const stored = typeof window !== "undefined" ? localStorage.getItem(locKey) : null;
+
+        let loaded = false;
         if (stored) {
-          book.locations.load(stored);
-        } else {
-          // Generate in background — ~1s for most books
+          try {
+            book.locations.load(stored);
+            loaded = true;
+          } catch {
+            // Corrupted data (e.g. double-encoded from earlier bug) — regenerate
+            localStorage.removeItem(locKey);
+          }
+        }
+
+        if (!loaded) {
           book.locations.generate(1024).then(() => {
             if (!mounted) return;
             try {
-              const json = JSON.stringify(book.locations.save());
-              localStorage.setItem(locKey, json);
+              // save() already returns a JSON string — do NOT JSON.stringify again
+              const json = book.locations.save();
+              if (json) localStorage.setItem(locKey, typeof json === "string" ? json : JSON.stringify(json));
             } catch {}
             // Refresh progress with accurate percentage now that locations are ready
-            const loc = (renditionRef.current as any)?.currentLocation?.();
-            if (loc?.start) {
-              const pct = Math.round((loc.start.percentage || 0) * 100);
-              if (pct > 0) {
-                setProgress(pct);
-                updateBook(bookId, { currentPage: pct });
+            try {
+              const loc = (renditionRef.current as any)?.currentLocation?.();
+              if (loc?.start) {
+                const pct = Math.round((loc.start.percentage || 0) * 100);
+                if (pct > 0) {
+                  setProgress(pct);
+                  updateBook(bookId, { currentPage: pct });
+                }
               }
-            }
+            } catch {}
           });
         }
       });
@@ -279,9 +322,10 @@ export function EpubReaderClient({
       // Track location changes
       rendition.on("relocated", (location: any) => {
         if (!mounted) return;
+        try {
         // Use percentage if locations are generated, otherwise approximate from spine index
-        let pct = Math.round((location.start.percentage || 0) * 100);
-        if (pct === 0 && location.start.index != null) {
+        let pct = Math.round((location.start?.percentage || 0) * 100);
+        if (pct === 0 && location.start?.index != null) {
           const spineItems: any[] = (book.spine as any).items ?? [];
           if (spineItems.length > 1) {
             pct = Math.round((location.start.index / (spineItems.length - 1)) * 100);
@@ -290,12 +334,13 @@ export function EpubReaderClient({
         setProgress(pct);
         updateBook(bookId, { currentPage: pct });
         // Save CFI for position restore on next visit
-        const cfi = location.start.cfi;
+        const cfi = location.start?.cfi;
         if (cfi) {
           localStorage.setItem(`epub-cfi-${bookId}`, cfi);
         }
         // Record session start (only set once — the first position after load)
         setSessionStartProgress((prev) => (prev === null ? pct : prev));
+        } catch {}
       });
 
       rendition.on("rendered", (section: any) => {
@@ -319,7 +364,8 @@ export function EpubReaderClient({
         // Re-apply theme + font to new section (epubjs re-creates iframe content)
         setTimeout(() => {
           if (renditionRef.current) {
-            applyTheme(renditionRef.current, readerTheme, fontSize, readerFont, fontColor);
+            // Use refs so we always get the user's current settings, not the stale closure values
+            applyTheme(renditionRef.current, readerThemeRef.current, fontSizeRef.current, readerFontRef.current, fontColorRef.current);
           }
         }, 50);
       });
@@ -365,12 +411,39 @@ export function EpubReaderClient({
     };
   }, [epubUrl]);
 
-  // ── Apply theme when it changes ───────────────────────
+  // ── Sync refs + persist to localStorage when settings change ─
   useEffect(() => {
+    readerThemeRef.current = readerTheme;
+    localStorage.setItem("reader-theme", readerTheme);
     if (renditionRef.current) {
       applyTheme(renditionRef.current, readerTheme, fontSize, readerFont, fontColor);
     }
-  }, [readerTheme, fontSize, readerFont, fontColor]);
+  }, [readerTheme]);
+
+  useEffect(() => {
+    readerFontRef.current = readerFont;
+    localStorage.setItem("reader-font", readerFont);
+    if (renditionRef.current) {
+      applyTheme(renditionRef.current, readerTheme, fontSize, readerFont, fontColor);
+    }
+  }, [readerFont]);
+
+  useEffect(() => {
+    fontColorRef.current = fontColor;
+    if (fontColor) localStorage.setItem("reader-font-color", fontColor);
+    else localStorage.removeItem("reader-font-color");
+    if (renditionRef.current) {
+      applyTheme(renditionRef.current, readerTheme, fontSize, readerFont, fontColor);
+    }
+  }, [fontColor]);
+
+  useEffect(() => {
+    fontSizeRef.current = fontSize;
+    localStorage.setItem("reader-font-size", String(fontSize));
+    if (renditionRef.current) {
+      applyTheme(renditionRef.current, readerTheme, fontSize, readerFont, fontColor);
+    }
+  }, [fontSize]);
 
   function applyTheme(rendition: any, theme: ReaderTheme, size: number, fontKey: string, customColor: string | null) {
     const t = READER_THEMES.find((r) => r.key === theme)!;
@@ -421,14 +494,7 @@ export function EpubReaderClient({
     });
   }
 
-  // ── Fullscreen ────────────────────────────────────────
-  useEffect(() => {
-    function onFullscreenChange() {
-      setIsFullscreen(!!document.fullscreenElement);
-    }
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
+  // ── CSS fullscreen (position:fixed overlay — avoids browser API blank-screen bug) ──
 
   useEffect(() => {
     if (!isFullscreen) { setShowBars(true); return; }
@@ -487,11 +553,23 @@ export function EpubReaderClient({
   }, [showNoteInput]);
 
   const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      readerRef.current?.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
+    setIsFullscreen((prev) => {
+      const next = !prev;
+      // After React applies the new fixed/normal layout, resize epubjs in-place.
+      // Never call display() — that resets the reading position.
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          try {
+            if (!renditionRef.current) return;
+            const w = next ? window.innerWidth  : (viewerRef.current?.offsetWidth  ?? window.innerWidth);
+            const h = next ? window.innerHeight : (viewerRef.current?.offsetHeight ?? window.innerHeight);
+            if (w > 0 && h > 0) renditionRef.current.resize(w, h);
+            applyTheme(renditionRef.current, readerThemeRef.current, fontSizeRef.current, readerFontRef.current, fontColorRef.current);
+          } catch {}
+        }, 50);
+      });
+      return next;
+    });
   }, []);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -640,8 +718,10 @@ export function EpubReaderClient({
     <div
       ref={readerRef}
       className={cn(
-        "flex flex-col -mx-6 -my-8 transition-colors duration-300",
-        isFullscreen ? "h-screen" : "h-[calc(100vh-4rem)]"
+        "flex flex-col transition-colors duration-300",
+        isFullscreen
+          ? "fixed inset-0 z-[9999]"
+          : "-mx-6 -my-8 h-[calc(100vh-4rem)]"
       )}
       style={{ background: currentTheme.bg, color: currentTheme.fg }}
     >
