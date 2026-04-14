@@ -20,6 +20,7 @@ export default async function SettingsPage() {
     <SettingsClient
       currentApiKey={data["anthropic_api_key"] || ""}
       currentModel={data["ai_model"] || "claude-sonnet-4-20250514"}
+      currentReadingGoal={data["yearly_reading_goal"] || ""}
     />
   );
 }

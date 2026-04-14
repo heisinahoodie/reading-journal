@@ -1,11 +1,15 @@
 import path from "path";
+import { readFile } from "fs/promises";
 import { getDb } from "@/lib/db";
 import { pdfChunks } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 
-const CHUNK_SIZE = 3000; // ~3000 chars per chunk
-const CHUNK_OVERLAP = 200; // overlap between chunks for context continuity
+const CHUNK_SIZE = 5000; // ~5000 chars per chunk for richer context
+const CHUNK_OVERLAP = 300; // overlap between chunks for context continuity
+
+// Patterns that indicate chapter boundaries — force a chunk break here
+const CHAPTER_HEADING_PATTERN = /\b(?:chapter|part|book|section|prologue|epilogue|introduction|preface|afterword|appendix)\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i;
 
 /**
  * Extract text from a PDF file using pdfjs-dist
@@ -37,6 +41,181 @@ async function extractTextFromPdf(
 }
 
 /**
+ * Strip HTML tags and decode basic entities from a string.
+ */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    // Normalize Unicode ligatures common in EPUBs/PDFs
+    .replace(/\uFB00/g, "ff")
+    .replace(/\uFB01/g, "fi")
+    .replace(/\uFB02/g, "fl")
+    .replace(/\uFB03/g, "ffi")
+    .replace(/\uFB04/g, "ffl")
+    .replace(/\uFB05/g, "st")
+    .replace(/\uFB06/g, "st")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Extract text from an EPUB file, returning chapters in reading order.
+ * Returns array of { title, text } objects.
+ */
+async function extractTextFromEpub(
+  filePath: string
+): Promise<{ chapters: { title: string; text: string }[] }> {
+  const JSZip = (await import("jszip")).default;
+  const absolutePath = path.join(process.cwd(), "data", "uploads", filePath);
+  const data = await readFile(absolutePath);
+  const zip = await JSZip.loadAsync(data);
+
+  // Step 1: Find the OPF file via META-INF/container.xml
+  const containerXml = await zip.file("META-INF/container.xml")?.async("string");
+  if (!containerXml) throw new Error("Invalid EPUB: missing container.xml");
+
+  const opfPathMatch = containerXml.match(/full-path="([^"]+\.opf)"/i);
+  if (!opfPathMatch) throw new Error("Invalid EPUB: cannot find OPF path");
+  const opfPath = opfPathMatch[1];
+  const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf("/") + 1) : "";
+
+  // Step 2: Parse OPF to get spine order and manifest
+  const opfXml = await zip.file(opfPath)?.async("string");
+  if (!opfXml) throw new Error("Invalid EPUB: cannot read OPF file");
+
+  // Build manifest: id → href (attributes may appear in any order)
+  const manifest: Record<string, string> = {};
+  for (const match of opfXml.matchAll(/<item\s[^>]+>/gi)) {
+    const tag = match[0];
+    const idMatch = tag.match(/\bid="([^"]+)"/i);
+    const hrefMatch = tag.match(/\bhref="([^"]+)"/i);
+    if (idMatch && hrefMatch) {
+      manifest[idMatch[1]] = hrefMatch[1];
+    }
+  }
+
+  // Get spine order (list of idref values)
+  const spineMatch = opfXml.match(/<spine[^>]*>([\s\S]*?)<\/spine>/i);
+  const spineItems = spineMatch
+    ? [...spineMatch[1].matchAll(/idref="([^"]+)"/gi)].map((m) => m[1])
+    : [];
+
+  // Try to get chapter titles from NCX or nav document
+  const titleMap: Record<string, string> = {};
+  // Try NCX first
+  const ncxId = opfXml.match(/\btoc="([^"]+)"/i)?.[1];
+  const ncxHref = ncxId ? manifest[ncxId] : Object.values(manifest).find((h) => h.endsWith(".ncx") || h.endsWith("toc.ncx") || h.includes("ncx"));
+  if (ncxHref) {
+    const ncxPath = opfDir + ncxHref;
+    const ncxXml = await zip.file(ncxPath)?.async("string");
+    if (ncxXml) {
+      const navPoints = ncxXml.matchAll(/<navPoint[^>]*>[\s\S]*?<text>([^<]*)<\/text>[\s\S]*?<content\s+src="([^"#]+)/gi);
+      for (const np of navPoints) {
+        titleMap[np[2]] = np[1].trim();
+      }
+    }
+  }
+
+  // Step 3: Extract text from each spine item
+  const chapters: { title: string; text: string }[] = [];
+  let chapterIndex = 0;
+
+  for (const idref of spineItems) {
+    const href = manifest[idref];
+    if (!href) continue;
+
+    // Resolve full path within the ZIP
+    const fullHref = opfDir + href;
+    const fileContent = await zip.file(fullHref)?.async("string")
+      ?? await zip.file(href)?.async("string");
+    if (!fileContent) continue;
+
+    const text = stripHtml(fileContent);
+    if (text.length < 50) continue; // skip near-empty items (cover images, etc.)
+
+    const hrefBase = href.split("/").pop() || href;
+    const title = titleMap[hrefBase] || titleMap[href] || `Chapter ${++chapterIndex}`;
+
+    chapters.push({ title, text });
+  }
+
+  return { chapters };
+}
+
+/**
+ * Extract EPUB text and store as chunks in the database.
+ * Returns the number of chunks created.
+ */
+export async function extractAndStoreEpubChunks(
+  bookId: string,
+  epubPath: string
+): Promise<number> {
+  const db = getDb();
+
+  const existing = db.select().from(pdfChunks).where(eq(pdfChunks.bookId, bookId)).all();
+  if (existing.length > 0) return existing.length;
+
+  const { chapters } = await extractTextFromEpub(epubPath);
+
+  const chunks: { text: string; pageStart: number; pageEnd: number }[] = [];
+  let virtualPage = 1; // EPUBs don't have real pages — use sequential chapter numbers
+
+  for (const chapter of chapters) {
+    const chapterStart = virtualPage;
+
+    if (chapter.text.length <= CHUNK_SIZE) {
+      // Whole chapter fits in one chunk — keep it together
+      chunks.push({
+        text: `[${chapter.title}]\n\n${chapter.text}`,
+        pageStart: chapterStart,
+        pageEnd: virtualPage,
+      });
+      virtualPage++;
+    } else {
+      // Split large chapters into sub-chunks
+      let offset = 0;
+      let isFirst = true;
+      while (offset < chapter.text.length) {
+        const slice = chapter.text.slice(offset, offset + CHUNK_SIZE);
+        chunks.push({
+          text: isFirst ? `[${chapter.title}]\n\n${slice}` : slice,
+          pageStart: virtualPage,
+          pageEnd: virtualPage,
+        });
+        offset += CHUNK_SIZE - CHUNK_OVERLAP;
+        virtualPage++;
+        isFirst = false;
+      }
+    }
+  }
+
+  const now = new Date().toISOString();
+  for (let i = 0; i < chunks.length; i++) {
+    db.insert(pdfChunks)
+      .values({
+        id: generateId(),
+        bookId,
+        chunkIndex: i,
+        text: chunks[i].text,
+        pageStart: chunks[i].pageStart,
+        pageEnd: chunks[i].pageEnd,
+        createdAt: now,
+      })
+      .run();
+  }
+
+  return chunks.length;
+}
+
+/**
  * Extract PDF text and store as chunks in the database.
  * Returns the number of chunks created.
  */
@@ -59,7 +238,7 @@ export async function extractAndStoreChunks(
 
   const { pageTexts } = await extractTextFromPdf(pdfPath);
 
-  // Build chunks with page tracking
+  // Build chunks with page tracking and chapter-boundary awareness
   const chunks: { text: string; pageStart: number; pageEnd: number }[] = [];
   let currentChunk = "";
   let chunkPageStart = 1;
@@ -68,7 +247,12 @@ export async function extractAndStoreChunks(
   for (const [pageNum, pageText] of pageTexts) {
     currentPage = pageNum;
 
-    if (currentChunk.length + pageText.length > CHUNK_SIZE && currentChunk.length > 0) {
+    // Check if this page starts a new chapter
+    const startsNewChapter =
+      currentChunk.length > 500 && // Don't break tiny chunks
+      CHAPTER_HEADING_PATTERN.test(pageText.substring(0, 200)); // Check first 200 chars of page
+
+    if (startsNewChapter || (currentChunk.length + pageText.length > CHUNK_SIZE && currentChunk.length > 0)) {
       // Save current chunk
       chunks.push({
         text: currentChunk.trim(),
@@ -76,9 +260,13 @@ export async function extractAndStoreChunks(
         pageEnd: currentPage - 1,
       });
 
-      // Start new chunk with overlap from end of previous
-      const overlap = currentChunk.slice(-CHUNK_OVERLAP);
-      currentChunk = overlap + " " + pageText;
+      // Start new chunk — use overlap only for size-based breaks, not chapter breaks
+      if (startsNewChapter) {
+        currentChunk = pageText;
+      } else {
+        const overlap = currentChunk.slice(-CHUNK_OVERLAP);
+        currentChunk = overlap + " " + pageText;
+      }
       chunkPageStart = currentPage;
     } else {
       currentChunk += " " + pageText;
@@ -114,15 +302,19 @@ export async function extractAndStoreChunks(
 }
 
 /**
- * Re-extract chunks for a book (e.g., after re-uploading a PDF)
+ * Re-extract chunks for a book (e.g., after re-uploading a file).
+ * Handles both PDF and EPUB.
  */
 export async function reExtractChunks(
   bookId: string,
-  pdfPath: string
+  filePath: string
 ): Promise<number> {
   const db = getDb();
   db.delete(pdfChunks).where(eq(pdfChunks.bookId, bookId)).run();
-  return extractAndStoreChunks(bookId, pdfPath);
+  if (filePath.toLowerCase().endsWith(".epub")) {
+    return extractAndStoreEpubChunks(bookId, filePath);
+  }
+  return extractAndStoreChunks(bookId, filePath);
 }
 
 const STOP_WORDS = new Set([
@@ -187,7 +379,7 @@ function detectReferences(query: string): { chapters: number[]; pages: number[] 
 export function getRelevantChunks(
   bookId: string,
   query: string,
-  maxChunks: number = 10,
+  maxChunks: number = 12,
   currentPage?: number | null
 ): { text: string; pageStart: number; pageEnd: number; score: number }[] {
   const db = getDb();
@@ -219,8 +411,8 @@ export function getRelevantChunks(
           const chapterMentions = (allChunks[i].text.match(/chapter\s+\d+/gi) || []).length;
           if (chapterMentions > 3) continue;
 
-          // Collect all chunks from this heading until the next chapter heading (or max 15)
-          for (let j = i; j < Math.min(i + 15, allChunks.length); j++) {
+          // Collect all chunks from this heading until the next chapter heading (or max 20)
+          for (let j = i; j < Math.min(i + 20, allChunks.length); j++) {
             // Stop when we hit the next chapter heading (but include the current heading chunk)
             if (j > i && nextHeaderPattern.test(allChunks[j].text)) {
               // Skip TOC chunks for the boundary check too

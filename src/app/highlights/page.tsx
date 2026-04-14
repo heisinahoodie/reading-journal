@@ -11,6 +11,7 @@ import {
   Sparkles,
   Star,
 } from "lucide-react";
+import { ExportNotes } from "@/components/highlights/export-notes";
 
 interface QuoteItem {
   text: string;
@@ -147,6 +148,27 @@ export default async function HighlightsPage() {
           Every quote that stopped you mid-page. Every lesson that changed how you
           think. Every theme that threads through the stories you love.
         </p>
+        <div className="mt-5">
+          <ExportNotes
+            data={{
+              quotes: allQuotes.map((q) => ({ text: q.text, book: q.book, author: q.author })),
+              lessons: allLessons.map((l) => ({ text: l.text, book: l.book })),
+              themes,
+              characters: allCharacters.map((c) => ({ name: c.name, book: c.book })),
+              recaps: allRecaps.map((r) => ({
+                title: r.title,
+                bookTitle: r.bookTitle,
+                author: r.author,
+                chapterRange: r.chapterRange,
+                thoughts: r.thoughts,
+                themes: r.themes,
+                quotes: r.quotes,
+                lessons: r.lessons,
+                characters: r.characters,
+              })),
+            }}
+          />
+        </div>
       </div>
 
       {/* ── SUMMARY STATS ──────────────────────────────────── */}

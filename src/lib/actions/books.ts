@@ -88,7 +88,7 @@ export async function updateBook(
     finishDate: string;
     currentPage: number;
     totalPages: number;
-    pdfPath: string;
+    pdfPath: string | null;
     coverImageUrl: string;
     isbn: string;
     journalEntry: string;

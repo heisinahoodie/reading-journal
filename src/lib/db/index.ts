@@ -104,6 +104,22 @@ export function getDb() {
         created_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS shelves (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#c9982e',
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS shelf_books (
+        id TEXT PRIMARY KEY,
+        shelf_id TEXT NOT NULL REFERENCES shelves(id) ON DELETE CASCADE,
+        book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+        added_at TEXT NOT NULL,
+        UNIQUE(shelf_id, book_id)
+      );
+
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
